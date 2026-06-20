@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Type play</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>艺术图形生成器 Pro - 印刷级/极速版</title>
+    <!-- 引入 OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="cvLoaded()"></script>
+    <style>
+        body { 
+            background: #1a1a1a; color: #1a1a1a; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; padding: 0; display: flex; width: 100vw; height: 100vh; overflow: hidden; 
+        }
+
+        .sidebar, .ctrl label, .ratio-text, .btn-white, .btn-black, .hex-display, .toggle-broken, span[id^="val-"], .style-select {
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 900;
+        }
+
+        .sidebar {
+            width: 360px; height: 100vh; 
+            background: #D6ACB0; 
+            display: flex; flex-direction: column; overflow-y: auto; padding: 30px 25px; box-sizing: border-box;
+            border-right: none; z-index: 10; flex-shrink: 0;
+        }
+
+        .panel { display: flex; flex-direction: column; gap: 20px; } 
+        .ctrl { display: flex; flex-direction: column; gap: 8px; } 
+
+        .ctrl label { 
+            font-size: 11px; color: #000; display: flex; justify-content: space-between;
+            align-items: center; text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .ratio-wrapper { display: flex; gap: 10px; align-items: center; }
+        .ratio-text { cursor: pointer; font-size: 10px; opacity: 0.3; transition: opacity 0.2s; }
+        .ratio-text.active { opacity: 1; }
+
+        .file-input-container {
+            background: #fff; border: none; padding: 10px; font-size: 11px;
+            width: 100%; box-sizing: border-box; 
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            position: relative; height: 36px;
+        }
+
+        #fileNameDisplay {
+            max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block;
+        }
+
+        #clearImg { 
+            margin-left: 10px; color: #666; font-size: 14px; cursor: pointer; 
+            padding: 0 5px; font-weight: 400; flex-shrink: 0; 
+            transition: color 0.2s;
+        }
+        #clearImg:hover { color: #000; }
+
+        .btn-white {
+            background: #fff; border: none; padding: 12px; font-size: 10px;
+            width: 100%; box-sizing: border-box; cursor: pointer; text-transform: uppercase;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 2px; background: #744557; margin: 4px 0 16px 0; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 8px; height: 16px; background: #000; cursor: pointer;
+        }
+
+        /* 修改点：选择器文字居中 */
+        .style-select {
+            width: 100%; height: 30px; background: #fff; border: none; 
+            font-size: 11px; cursor: pointer; outline: none;
+            padding: 0 25px; margin-bottom: 5px; text-transform: uppercase;
+            box-shadow: none !important;
+            -webkit-appearance: none; appearance: none;
+            border-radius: 0;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
+            
+            text-align: center;      /* 兼容性居中 */
+            text-align-last: center; /* 确保选中的文字在框内居中 */
+        }
+        .style-select:focus, .style-select:active { outline: none !important; box-shadow: none !important; border: none !important; }
+        .style-select option { border: none !important; outline: none !important; background: #fff; text-align: center; }
+
+        .color-row { display: flex; gap: 5px; margin-top: 5px; }
+        .color-unit { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .color-unit label { font-size: 8px; opacity: 0.7; }
+
+        .bg-ctrl-group { display: flex; background: #fff; height: 35px; align-items: center; width: 100%; }
+        .compact-ctrl-group { display: flex; background: #fff; height: 17.5px; align-items: center; width: 100%; overflow: hidden; }
+
+        .color-block { flex: 1; height: 100%; cursor: pointer; border-right: 1px solid #eee; }
+        .hex-display { flex: 1; text-align: center; border: none; font-size: 11px; outline: none; background: transparent; color: #000; width: 100%; height: 100%; }
+        
+        .compact-ctrl-group .hex-display { font-size: 9px; }
+
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+        .btn-black { background: #000; color: #fff; border: none; padding: 16px; font-size: 12px; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
+
+        .footer-text { margin-top: auto; padding-top: 20px; text-align: center; font-size: 9px; color: rgba(0,0,0,0.6); font-weight: bold; }
+
+        .canvas-area { 
+            flex: 1; background: #744557; position: relative; 
+            display: flex; align-items: center; justify-content: center; padding: 0;
+            cursor: default; 
+        }
+
+        canvas { background: #F4F4F4; max-width: 100%; max-height: 100%; box-shadow: none; }
+        #upload { display: none; }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <div class="panel">
+        <div class="ctrl">
+            <label>
+                1. 图像源 (SOURCE)
+                <div class="ratio-wrapper">
+                    <span class="ratio-text" data-ratio="3:4">3:4</span>
+                    <span class="ratio-text active" data-ratio="fill">FULL</span>
+                </div>
+            </label>
+            <div class="file-input-container" onclick="document.getElementById('upload').click()">
+                <div id="fileInfo">
+                    <span id="fileNameDisplay">选择图片 SELECT IMAGE</span>
+                    <span id="clearImg" style="display:none">✕</span>
+                </div>
+            </div>
+            <input type="file" id="upload" accept="image/*">
+        </div>
+
+        <div class="ctrl">
+            <label>2. 描边风格 (STROKE STYLE)</label>
+            <select id="strokeStyle" class="style-select" onchange="handleStyleChange()">
+                <option value="solid">实线单色 SOLID</option>
+                <option value="broken">断开锚点 BROKEN</option>
+                <option value="metal">多重金属 METAL</option>
+                <option value="pipe">3D 渐变管道 PIPE</option>
+                <option value="ribbon">锯齿色带 RIBBON</option>
+            </select>
+
+            <label>色彩配置 (COLORS)</label>
+            <div class="color-row">
+                <div class="color-unit">
+                    <label>背景 (BG)</label>
+                    <div class="bg-ctrl-group">
+                        <input type="color" id="colorBg" value="#F4F4F4" style="display:none" oninput="handleColorInput('colorBg')">
+                        <div id="colorBgBlock" class="color-block" style="background-color: #F4F4F4;" onclick="document.getElementById('colorBg').click()"></div>
+                        <input type="text" class="hex-display" id="hexBg" value="#F4F4F4" oninput="handleHexInput('hexBg')">
+                    </div>
+                </div>
+            </div>
+            <div class="color-row">
+                <div class="color-unit">
+                    <label>核心/亮部 (CORE)</label>
+                    <div class="compact-ctrl-group">
+                        <input type="color" id="colorFg" value="#B7410E" style="display:none" oninput="handleColorInput('colorFg')">
+                        <div id="colorFgBlock" class="color-block" style="background-color: #B7410E;" onclick="document.getElementById('colorFg').click()"></div>
+                        <input type="text" class="hex-display" id="hexFg" value="#B7410E" oninput="handleHexInput('hexFg')">
+                    </div>
+                </div>
+                <div class="color-unit">
+                    <label>描边/壳体 (STROKE)</label>
+                    <div class="compact-ctrl-group">
+                        <input type="color" id="colorStroke" value="#000000" style="display:none" oninput="handleColorInput('colorStroke')">
+                        <div id="colorStrokeBlock" class="color-block" style="background-color: #000000;" onclick="document.getElementById('colorStroke').click()"></div>
+                        <input type="text" class="hex-display" id="hexStroke" value="#000000" oninput="handleHexInput('hexStroke')">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 金属风格专用色彩面板 -->
+            <div id="metalColorsPanel" style="display:none;">
+                <div class="color-row">
+                    <div class="color-unit"><label>金属层 1</label>
+                        <div class="compact-ctrl-group">
+                            <input type="color" id="colorM1" value="#004d26" style="display:none" oninput="handleColorInput('colorM1')">
+                            <div id="colorM1Block" class="color-block" style="background-color: #004d26;" onclick="document.getElementById('colorM1').click()"></div>
+                            <input type="text" class="hex-display" id="hexM1" value="#004D26" oninput="handleHexInput('hexM1')">
+                        </div>
+                    </div>
+                    <div class="color-unit"><label>金属层 2</label>
+                        <div class="compact-ctrl-group">
+                            <input type="color" id="colorM2" value="#FFFFFF" style="display:none" oninput="handleColorInput('colorM2')">
+                            <div id="colorM2Block" class="color-block" style="background-color: #FFFFFF;" onclick="document.getElementById('colorM2').click()"></div>
+                            <input type="text" class="hex-display" id="hexM2" value="#FFFFFF" oninput="handleHexInput('hexM2')">
+                        </div>
+                    </div>
+                    <div class="color-unit"><label>金属层 3</label>
+                        <div class="compact-ctrl-group">
+                            <input type="color" id="colorM3" value="#0066FF" style="display:none" oninput="handleColorInput('colorM3')">
+                            <div id="colorM3Block" class="color-block" style="background-color: #0066FF;" onclick="document.getElementById('colorM3').click()"></div>
+                            <input type="text" class="hex-display" id="hexM3" value="#0066FF" oninput="handleHexInput('hexM3')">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ctrl">
+            <label>识别阈值 (THRESHOLD) <span id="val-threshold">230</span></label>
+            <input type="range" id="threshold" min="0" max="255" value="230">
+            <label>图形膨胀 (EXPANSION) <span id="val-expansion">0</span></label>
+            <input type="range" id="expansion" min="0" max="100" value="0">
+            <label>几何/锯齿硬度 (EPSILON) <span id="val-epsilon">20</span></label>
+            <input type="range" id="epsilon" min="1" max="150" value="20">
+            <label>描边总宽度 (STROKE WIDTH) <span id="val-strokeWidth">35</span></label>
+            <input type="range" id="strokeWidth" min="0" max="300" value="35">
+            <div id="cornerLimitCtrl">
+                <label>刺穿强度 (MITER LIMIT) <span id="val-miterLimit">80</span></label>
+                <input type="range" id="miterLimit" min="1" max="1000" step="0.1" value="80">
+            </div>
+            <div id="gapSizeCtrl" style="display: none;">
+                <label>断开间距 (GAP SIZE) <span id="val-gapSize">0</span></label>
+                <input type="range" id="gapSize" min="0" max="100" value="0">
+            </div>
+            <label>图形缩放 (GRAPHIC SCALE) <span id="val-graphicScale">0.8</span></label>
+            <input type="range" id="graphicScale" min="0.1" max="2.0" step="0.01" value="0.8">
+        </div>
+
+        <div class="ctrl">
+            <label>3. 导出 (EXPORT) A3/300DPI</label>
+            <div class="btn-group">
+                <button class="btn-white" onclick="exportHQ('jpg')">JPG</button>
+                <button class="btn-white" onclick="exportHQ('png')">PNG</button>
+                <button class="btn-white" onclick="downloadSVG()">SVG</button>
+            </div>
+        </div>
+        <button class="btn-black" onclick="randomize()">随机图形与色彩</button>
+    </div>
+    <div class="footer-text">DESIGN BY TYPE PLAY STUDIO 2026.</div>
+</div>
+
+<div class="canvas-area" id="canvasArea"><canvas id="canvas"></canvas></div>
+
+<script>
+    let cvReady = false, sourceMat = null, basePolygons = [], needsRecalc = true, renderPending = false;
+    const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d'), upload = document.getElementById('upload'), fileNameDisplay = document.getElementById('fileNameDisplay'), clearImgBtn = document.getElementById('clearImg'), ratioTexts = document.querySelectorAll('.ratio-text'), canvasArea = document.getElementById('canvasArea');
+    let currentRatioType = 'fill', BASE_SIZE = 1600; 
+
+    function cvLoaded() { cvReady = true; console.log("OpenCV Ready"); }
+    function hexToRgb(hex) { const res = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return res ? { r: parseInt(res[1], 16), g: parseInt(res[2], 16), b: parseInt(res[3], 16) } : {r:0,g:0,b:0}; }
+    function lerpColor(c1, c2, t) { return `rgb(${Math.round(c1.r + (c2.r - c1.r) * t)}, ${Math.round(c1.g + (c2.g - c1.g) * t)}, ${Math.round(c1.b + (c2.b - c1.b) * t)})`; }
+    function updateColorUI(type, hex) { const el = document.getElementById('color' + type); if(!el) return; el.value = hex; document.getElementById('hex' + type).value = hex.toUpperCase(); document.getElementById('color' + type + 'Block').style.backgroundColor = hex; }
+    function getRandomHex() { return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'); }
+
+    function init() {
+        resizeCanvas();
+        ratioTexts.forEach(txt => { txt.onclick = () => { ratioTexts.forEach(t => t.classList.remove('active')); txt.classList.add('active'); currentRatioType = txt.dataset.ratio; resizeCanvas(); }; });
+        canvasArea.ondblclick = () => { upload.click(); };
+    }
+
+    clearImgBtn.onclick = (e) => {
+        e.stopPropagation(); if (sourceMat) { sourceMat.delete(); sourceMat = null; }
+        upload.value = ''; fileNameDisplay.textContent = "选择图片 SELECT IMAGE"; clearImgBtn.style.display = 'none';
+        basePolygons = []; needsRecalc = true; requestRender(true);
+    };
+
+    function handleHexInput(id) { let val = document.getElementById(id).value; if(/^#[0-9A-F]{6}$/i.test(val)) { const pickId = id.replace('hex', 'color'); document.getElementById(pickId).value = val; document.getElementById(pickId + 'Block').style.backgroundColor = val; requestRender(false); } }
+    function handleColorInput(id) { const val = document.getElementById(id).value; const hexId = id.replace('color', 'hex'); document.getElementById(hexId).value = val.toUpperCase(); document.getElementById(id + 'Block').style.backgroundColor = val; requestRender(false); }
+
+    function handleStyleChange() {
+        const style = document.getElementById('strokeStyle').value;
+        document.getElementById('gapSizeCtrl').style.display = (style === 'broken') ? 'block' : 'none';
+        document.getElementById('metalColorsPanel').style.display = (style === 'metal') ? 'block' : 'none';
+        document.getElementById('cornerLimitCtrl').style.display = (style === 'broken') ? 'none' : 'block';
+
+        if (style === 'ribbon') {
+            updateColorUI('Bg', '#F2F2F2'); updateColorUI('Fg', '#FF7700'); updateColorUI('Stroke', '#000000');
+            document.getElementById('epsilon').value = 17; document.getElementById('strokeWidth').value = 50;
+            document.getElementById('miterLimit').value = 800;
+        } else if (style === 'pipe') {
+            updateColorUI('Bg', '#F4F4F4'); updateColorUI('Fg', '#00FF00'); updateColorUI('Stroke', '#000000');
+            document.getElementById('epsilon').value = 20; document.getElementById('strokeWidth').value = 35;
+            document.getElementById('miterLimit').value = 80;
+        } else if (style === 'metal') {
+            updateColorUI('Bg', '#F4F4F4'); updateColorUI('Fg', '#00FF00'); updateColorUI('Stroke', '#000000');
+            document.getElementById('epsilon').value = 20; document.getElementById('strokeWidth').value = 35;
+        } else if (style === 'broken') {
+            updateColorUI('Bg', '#F4F4F4'); updateColorUI('Fg', '#B7410E'); updateColorUI('Stroke', '#000000');
+            document.getElementById('epsilon').value = 20; document.getElementById('strokeWidth').value = 35;
+            document.getElementById('gapSize').value = 0;
+        } else { // solid
+            updateColorUI('Bg', '#F4F4F4'); updateColorUI('Fg', '#B7410E'); updateColorUI('Stroke', '#000000');
+            document.getElementById('epsilon').value = 20; document.getElementById('strokeWidth').value = 35;
+            document.getElementById('miterLimit').value = 80;
+        }
+        ['epsilon', 'strokeWidth', 'miterLimit', 'gapSize'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) document.getElementById('val-'+id).textContent = el.value;
+        });
+        requestRender(true);
+    }
+
+    function resizeCanvas() {
+        const isFill = currentRatioType === 'fill'; canvasArea.style.padding = isFill ? '0' : '50px';
+        const areaW = canvasArea.clientWidth - (isFill ? 0 : 100), areaH = canvasArea.clientHeight - (isFill ? 0 : 100);
+        let ratio = isFill ? areaW / areaH : 3 / 4;
+        let dW, dH; if (areaW / areaH > ratio) { dH = areaH; dW = dH * ratio; } else { dW = areaW; dH = dW / ratio; }
+        canvas.style.width = dW + 'px'; canvas.style.height = dH + 'px';
+        canvas.width = BASE_SIZE; canvas.height = BASE_SIZE / ratio;
+        requestRender(true);
+    }
+
+    window.onresize = resizeCanvas;
+    upload.onchange = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        fileNameDisplay.textContent = file.name; clearImgBtn.style.display = 'inline';
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image(); img.onload = () => {
+                if(sourceMat) sourceMat.delete();
+                const tempCanvas = document.createElement('canvas'); tempCanvas.width = img.width; tempCanvas.height = img.height;
+                tempCanvas.getContext('2d').drawImage(img, 0, 0); sourceMat = cv.imread(tempCanvas); requestRender(true);
+            }; img.src = ev.target.result;
+        }; reader.readAsDataURL(file);
+    };
+
+    function randomize() {
+        document.getElementById('epsilon').value = Math.floor(Math.random() * 40) + 2;
+        document.getElementById('expansion').value = Math.floor(Math.random() * 30);
+        document.getElementById('strokeWidth').value = Math.floor(Math.random() * 100) + 30;
+        updateColorUI('Bg', getRandomHex()); updateColorUI('Stroke', getRandomHex()); updateColorUI('Fg', getRandomHex());
+        ['epsilon', 'expansion', 'strokeWidth', 'miterLimit', 'gapSize', 'graphicScale'].forEach(id => { 
+            const el = document.getElementById(id); if(el) document.getElementById('val-' + id).textContent = el.value; 
+        });
+        requestRender(true);
+    }
+
+    ['threshold', 'expansion', 'epsilon', 'strokeWidth', 'miterLimit', 'gapSize', 'graphicScale'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.oninput = function() { document.getElementById('val-' + id).textContent = this.value; requestRender(id === 'threshold' || id === 'epsilon' || id === 'expansion'); };
+    });
+
+    function requestRender(recalc = true) { if (recalc) needsRecalc = true; if (renderPending) return; renderPending = true; requestAnimationFrame(() => { render(canvas, ctx); renderPending = false; }); }
+
+    function render(targetCanvas, targetCtx, isExport = false, transparent = false) {
+        const cw = targetCanvas.width, ch = targetCanvas.height;
+        const bgCol = document.getElementById('colorBg').value;
+        targetCtx.clearRect(0, 0, cw, ch); 
+        if (!transparent) { targetCtx.fillStyle = bgCol; targetCtx.fillRect(0, 0, cw, ch); }
+        if (!cvReady || !sourceMat) return;
+        const fgCol = document.getElementById('colorFg').value, strokeCol = document.getElementById('colorStroke').value;
+        const gScale = parseFloat(document.getElementById('graphicScale').value), mLimitSlider = parseFloat(document.getElementById('miterLimit').value);
+        const strokeW = parseInt(document.getElementById('strokeWidth').value) * (cw / BASE_SIZE) * gScale;
+        const gapSize = parseInt(document.getElementById('gapSize').value) * (cw / BASE_SIZE) * gScale;
+        const currentStyle = document.getElementById('strokeStyle').value;
+
+        if (needsRecalc) {
+            // 修改点：限制阈值计算最大值为 254，确保在 255 时依然能识别轮廓
+            let thresh = Math.min(254, parseInt(document.getElementById('threshold').value)), eps = parseFloat(document.getElementById('epsilon').value), expVal = parseInt(document.getElementById('expansion').value);
+            let gray = new cv.Mat(); cv.cvtColor(sourceMat, gray, cv.COLOR_RGBA2GRAY);
+            let sw = sourceMat.cols, sh = sourceMat.rows, aspect = BASE_SIZE / (BASE_SIZE * (canvas.height/canvas.width)), sx = 0, sy = 0;
+            if (sw / sh > aspect) { sw = sh * aspect; sx = (sourceMat.cols - sw) / 2; } else { sh = sw / aspect; sy = (sourceMat.rows - sh) / 2; }
+            let cropped = gray.roi(new cv.Rect(sx, sy, sw, sh)), resized = new cv.Mat();
+            cv.resize(cropped, resized, new cv.Size(BASE_SIZE, Math.floor(BASE_SIZE * (canvas.height/canvas.width))));
+            let binary = new cv.Mat(); cv.threshold(resized, binary, thresh, 255, cv.THRESH_BINARY_INV);
+            if (expVal > 0) { let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(expVal*2+1, expVal*2+1)); cv.dilate(binary, binary, kernel); kernel.delete(); }
+            let contours = new cv.MatVector(), hierarchy = new cv.Mat();
+            cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, currentStyle === 'ribbon' ? cv.CHAIN_APPROX_NONE : cv.CHAIN_APPROX_SIMPLE);
+            basePolygons = [];
+            for (let i = 0; i < contours.size(); ++i) {
+                let cnt = contours.get(i); if (cv.contourArea(cnt) < (BASE_SIZE * 2)) { cnt.delete(); continue; }
+                let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, eps, true);
+                let pts = []; for (let j = 0; j < approx.rows; ++j) pts.push({ x: approx.data32S[j * 2], y: approx.data32S[j * 2 + 1] });
+                basePolygons.push(pts); approx.delete(); cnt.delete();
+            }
+            gray.delete(); cropped.delete(); resized.delete(); binary.delete(); contours.delete(); hierarchy.delete();
+            needsRecalc = false;
+        }
+
+        targetCtx.save();
+        const centerX = cw / 2, centerY = ch / 2, s = cw / BASE_SIZE;
+        targetCtx.lineJoin = "miter"; targetCtx.miterLimit = currentStyle === 'ribbon' ? mLimitSlider : Math.max(1, mLimitSlider * 0.25);
+        for (let poly of basePolygons) {
+            const pts = poly.map(p => ({ x: centerX + (p.x * s - (BASE_SIZE*s/2)) * gScale, y: centerY + (p.y * s - (ch/2)) * gScale }));
+            if (currentStyle !== 'pipe') {
+                targetCtx.fillStyle = (currentStyle === 'ribbon') ? strokeCol : fgCol;
+                targetCtx.beginPath(); targetCtx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) targetCtx.lineTo(pts[i].x, pts[i].y); targetCtx.closePath(); targetCtx.fill();
+            }
+            if (strokeW > 0) {
+                if (currentStyle === 'broken') {
+                    targetCtx.strokeStyle = strokeCol; targetCtx.lineWidth = strokeW;
+                    for (let i = 0; i < pts.length; i++) {
+                        const p1 = pts[i], p2 = pts[(i + 1) % pts.length];
+                        const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.sqrt(dx * dx + dy * dy);
+                        if (len > gapSize * 2) {
+                            const r = gapSize / len;
+                            targetCtx.beginPath(); targetCtx.moveTo(p1.x + dx * r, p1.y + dy * r);
+                            targetCtx.lineTo(p2.x - dx * r, p2.y - dy * r); targetCtx.stroke();
+                        }
+                    }
+                } else if (currentStyle === 'ribbon') {
+                    const layers = [{ w: 1.0, c: strokeCol }, { w: 0.85, c: fgCol }, { w: 0.5, c: "#D0D0D0" }, { w: 0.35, c: "#FFFFFF" }, { w: 0.15, c: fgCol }, { w: 0.05, c: strokeCol }];
+                    layers.forEach(l => {
+                        targetCtx.strokeStyle = l.c; targetCtx.lineWidth = strokeW * l.w;
+                        targetCtx.beginPath(); targetCtx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) targetCtx.lineTo(pts[i].x, pts[i].y); targetCtx.closePath(); targetCtx.stroke();
+                    });
+                } else if (currentStyle === 'pipe') {
+                    const glowRgb = hexToRgb(fgCol), tubeRgb = hexToRgb(strokeCol), shellRgb = { r: Math.max(0, tubeRgb.r - 60), g: Math.max(0, tubeRgb.g - 60), b: Math.max(0, tubeRgb.b - 60) };
+                    for (let j = 0; j < 20; j++) {
+                        let t = j/19, curW = strokeW * (1 - t*0.95), col;
+                        if (t < 0.4) col = lerpColor(shellRgb, tubeRgb, t/0.4); else if (t < 0.85) col = lerpColor(tubeRgb, glowRgb, (t-0.4)/0.45); else col = lerpColor(glowRgb, {r:255,g:255,b:255}, (t-0.85)/0.15);
+                        targetCtx.strokeStyle = col; targetCtx.lineWidth = curW; targetCtx.beginPath(); targetCtx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) targetCtx.lineTo(pts[i].x, pts[i].y); targetCtx.closePath(); targetCtx.stroke();
+                    }
+                } else if (currentStyle === 'metal') {
+                    const mLayers = [{c: document.getElementById('colorM1').value, w: 1.8}, {c: document.getElementById('colorM2').value, w: 1.2}, {c: document.getElementById('colorM3').value, w: 0.7}, {c: strokeCol, w: 0.15}];
+                    mLayers.forEach(l => { targetCtx.strokeStyle = l.c; targetCtx.lineWidth = strokeW * l.w; targetCtx.beginPath(); targetCtx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) targetCtx.lineTo(pts[i].x, pts[i].y); targetCtx.closePath(); targetCtx.stroke(); });
+                } else {
+                    targetCtx.strokeStyle = strokeCol; targetCtx.lineWidth = strokeW;
+                    targetCtx.beginPath(); targetCtx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) targetCtx.lineTo(pts[i].x, pts[i].y); targetCtx.closePath(); targetCtx.stroke();
+                }
+            }
+        }
+        targetCtx.restore();
+    }
+
+    function exportHQ(format) { const out = document.createElement('canvas'); const A3_W = 3508; const r = canvas.height / canvas.width; out.width = A3_W; out.height = A3_W * r; render(out, out.getContext('2d'), true, format === 'png'); const link = document.createElement('a'); link.download = `TYPE_PLAY_STRIKE_${Date.now()}.${format}`; link.href = out.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 0.95); link.click(); }
+
+    function downloadSVG() {
+        if (basePolygons.length === 0) return;
+        const cw = 3508, ch = cw * (canvas.height/canvas.width);
+        const bgCol = document.getElementById('colorBg').value, fgCol = document.getElementById('colorFg').value, strokeCol = document.getElementById('colorStroke').value;
+        const gScale = parseFloat(document.getElementById('graphicScale').value), mLimitSlider = parseFloat(document.getElementById('miterLimit').value);
+        const strokeW = parseInt(document.getElementById('strokeWidth').value) * (cw / BASE_SIZE) * gScale;
+        const currentStyle = document.getElementById('strokeStyle').value;
+        const centerX = cw / 2, centerY = ch / 2, s = cw / BASE_SIZE;
+        const finalMiterLimit = currentStyle === 'ribbon' ? mLimitSlider : Math.max(1, mLimitSlider * 0.25);
+
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${ch}" viewBox="0 0 ${cw} ${ch}">`;
+        svg += `<rect width="100%" height="100%" fill="${bgCol}"/>`;
+
+        for (let poly of basePolygons) {
+            const pts = poly.map(p => ({ x: centerX + (p.x * s - (BASE_SIZE*s/2)) * gScale, y: centerY + (p.y * s - (ch/2)) * gScale }));
+            let d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + ` ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z';
+
+            if (currentStyle !== 'pipe') {
+                const fillCol = (currentStyle === 'ribbon') ? strokeCol : fgCol;
+                svg += `<path d="${d}" fill="${fillCol}" stroke="none" />`;
+            }
+
+            if (strokeW > 0) {
+                if (currentStyle === 'broken') {
+                    const gS = parseInt(document.getElementById('gapSize').value) * (cw / BASE_SIZE) * gScale;
+                    for (let i = 0; i < pts.length; i++) {
+                        const p1 = pts[i], p2 = pts[(i + 1) % pts.length];
+                        const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.sqrt(dx*dx+dy*dy);
+                        if (len > gS*2) {
+                            const r = gS/len;
+                            svg += `<line x1="${(p1.x + dx * r).toFixed(1)}" y1="${(p1.y + dy * r).toFixed(1)}" x2="${(p2.x - dx * r).toFixed(1)}" y2="${(p2.y - dy * r).toFixed(1)}" stroke="${strokeCol}" stroke-width="${strokeW}" stroke-linecap="butt" />`;
+                        }
+                    }
+                } else if (currentStyle === 'ribbon') {
+                    const layers = [{ w: 1.0, c: strokeCol }, { w: 0.85, c: fgCol }, { w: 0.5, c: "#D0D0D0" }, { w: 0.35, c: "#FFFFFF" }, { w: 0.15, c: fgCol }, { w: 0.05, c: strokeCol }];
+                    layers.forEach(l => {
+                        svg += `<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${strokeW * l.w}" stroke-miterlimit="${finalMiterLimit}" stroke-linejoin="miter" />`;
+                    });
+                } else if (currentStyle === 'pipe') {
+                    const glowRgb = hexToRgb(fgCol), tubeRgb = hexToRgb(strokeCol), shellRgb = { r: Math.max(0, tubeRgb.r - 60), g: Math.max(0, tubeRgb.g - 60), b: Math.max(0, tubeRgb.b - 60) };
+                    for (let j = 0; j < 20; j++) {
+                        let t = j/19, curW = strokeW * (1 - t*0.95), col;
+                        if (t < 0.4) col = lerpColor(shellRgb, tubeRgb, t/0.4); else if (t < 0.85) col = lerpColor(tubeRgb, glowRgb, (t-0.4)/0.45); else col = lerpColor(glowRgb, {r:255,g:255,b:255}, (t-0.85)/0.15);
+                        svg += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${curW}" stroke-miterlimit="${finalMiterLimit}" stroke-linejoin="miter" />`;
+                    }
+                } else if (currentStyle === 'metal') {
+                    const mLayers = [{c: document.getElementById('colorM1').value, w: 1.8}, {c: document.getElementById('colorM2').value, w: 1.2}, {c: document.getElementById('colorM3').value, w: 0.7}, {c: strokeCol, w: 0.15}];
+                    mLayers.forEach(l => {
+                        svg += `<path d="${d}" fill="none" stroke="${l.c}" stroke-width="${strokeW * l.w}" stroke-miterlimit="${finalMiterLimit}" stroke-linejoin="miter" />`;
+                    });
+                } else {
+                    svg += `<path d="${d}" fill="none" stroke="${strokeCol}" stroke-width="${strokeW}" stroke-miterlimit="${finalMiterLimit}" stroke-linejoin="miter" />`;
+                }
+            }
+        }
+        svg += `</svg>`;
+        const blob = new Blob([svg], {type: 'image/svg+xml'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `TYPE_PLAY_STRIKE_VECTOR_${Date.now()}.svg`;
+        link.click();
+    }
+    init();
+</script>
+</body>
+</html>
+    
+  </body>
+  
+</html>
